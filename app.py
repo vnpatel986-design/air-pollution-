@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pickle
+import os
 
 # Page configuration
 st.set_page_config(page_title="Air Pollution Prediction", layout="wide")
@@ -9,10 +10,16 @@ st.set_page_config(page_title="Air Pollution Prediction", layout="wide")
 st.title("🌍 Air Pollution Prediction System")
 st.write("Upload your dataset to predict pollution levels using Machine Learning.")
 
+MODEL_PATH = "air_pol_pipe_model.pkl"
+
 # Load trained model
 @st.cache_resource
 def load_model():
-    with open("air_pol_pipe_model.pkl", "rb") as f:
+    if not os.path.exists(MODEL_PATH):
+        st.error("❌ Model file 'air_pol_pipe_model.pkl' not found. Please add it to the project folder.")
+        return None
+    
+    with open(MODEL_PATH, "rb") as f:
         model = pickle.load(f)
     return model
 
@@ -22,7 +29,7 @@ model = load_model()
 st.sidebar.header("Upload Dataset")
 uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
 
-if uploaded_file is not None:
+if uploaded_file is not None and model is not None:
 
     df = pd.read_csv(uploaded_file)
 
@@ -35,26 +42,30 @@ if uploaded_file is not None:
     numeric_df = df.select_dtypes(include=["int64", "float64"])
 
     st.subheader("Numeric Features Used For Prediction")
-    st.write(numeric_df.columns)
+    st.write(numeric_df.columns.tolist())
 
     if st.button("🚀 Run Prediction"):
 
-        prediction = model.predict(numeric_df)
+        try:
+            prediction = model.predict(numeric_df)
 
-        df["Prediction"] = prediction
+            df["Prediction"] = prediction
 
-        st.subheader("Prediction Results")
-        st.dataframe(df)
+            st.subheader("Prediction Results")
+            st.dataframe(df)
 
-        # Download predictions
-        csv = df.to_csv(index=False).encode("utf-8")
+            # Download predictions
+            csv = df.to_csv(index=False).encode("utf-8")
 
-        st.download_button(
-            label="📥 Download Predictions",
-            data=csv,
-            file_name="air_pollution_predictions.csv",
-            mime="text/csv"
-        )
+            st.download_button(
+                label="📥 Download Predictions",
+                data=csv,
+                file_name="air_pollution_predictions.csv",
+                mime="text/csv"
+            )
+
+        except Exception as e:
+            st.error(f"Prediction error: {e}")
 
 else:
     st.info("Please upload a CSV file to start prediction.")
